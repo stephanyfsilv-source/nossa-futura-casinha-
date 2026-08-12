@@ -125,7 +125,8 @@ if (senha !== "AMOTE") {
     throw new Error("Acesso negado");
 }
 
-let itens = [];
+let itens = JSON.parse(localStorage.getItem("itens")) || [];
+  
   
 
 function renderizar(){
@@ -188,7 +189,10 @@ preco: parseFloat(document.getElementById("preco").value) || 0,
 categoria: document.getElementById("categoria").value
 });
 
+localStorage.setItem("itens", JSON.stringify(itens));
+
 renderizar();
+
 
 }
 
@@ -196,9 +200,14 @@ function removerItem(index){
 
 itens.splice(index,1);
 
+localStorage.setItem("itens", JSON.stringify(itens));
+
 renderizar();
 
 }
+
+renderizar();
+  
 
 </script>
 
