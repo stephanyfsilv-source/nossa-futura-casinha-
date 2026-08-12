@@ -46,6 +46,44 @@ button{
   padding:10px 15px;
   border-radius:10px;
   cursor:pointer;
+  font-weight: bold;
+}
+
+.painel-totais {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.caixa-total {
+  flex: 1;
+  min-width: 220px;
+  background: white;
+  padding: 15px;
+  border-radius: 15px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.05);
+}
+
+.caixa-total h3 {
+  margin: 0 0 5px 0;
+  font-size: 1rem;
+  color: #555;
+}
+
+.caixa-total.comprados {
+  background: #fde2e4;
+  border: 1px solid #ffcad4;
+}
+
+.caixa-total.comprados h3 {
+  color: #a84163;
+}
+
+.valor-total {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #d63384;
 }
 
 .lista{
@@ -59,6 +97,23 @@ button{
   padding:15px;
   border-radius:15px;
   box-shadow:0 2px 8px rgba(0,0,0,.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+/* Estilo Rosa Pastel para itens comprados */
+.card.comprado {
+  background-color: #fde2e4;
+  border-color: #ffcad4;
+}
+
+.card.comprado h3,
+.card.comprado .preco {
+  text-decoration: line-through;
+  color: #a84163;
 }
 
 .card img{
@@ -71,6 +126,38 @@ button{
 .preco{
   color:#d63384;
   font-weight:bold;
+}
+
+.link-loja {
+  display: inline-block;
+  margin: 10px 0;
+  color: #d63384;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.link-loja:hover {
+  text-decoration: underline;
+}
+
+.acoes {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.btn-comprado {
+  background: #ff85a2;
+  flex: 1;
+}
+
+.card.comprado .btn-comprado {
+  background: #b5e2fa;
+  color: #2b2d42;
+}
+
+.btn-excluir {
+  background: #ff4d6d;
 }
 </style>
 </head>
@@ -89,9 +176,9 @@ button{
 
 <input id="imagem" placeholder="Link da imagem">
 
-<input id="loja" placeholder="Link da loja">
+<input id="loja" placeholder="Link da loja (https://...)">
 
-<input id="preco" type="number" placeholder="Preço">
+<input id="preco" type="number" step="0.01" placeholder="Preço">
 
 <select id="categoria">
 <option>🍽️ Cozinha</option>
@@ -105,6 +192,458 @@ button{
 Adicionar 🩷
 </button>
 
+</div>
+
+<div class="painel-totais">
+  <div class="caixa-total">
+    <h3>💰 Total a Comprar:</h3>
+    <div class="valor-total">R$ <span id="total-pendente">0.00</span></div>
+  </div>
+
+  <div class="caixa-total comprados">
+    <h3>🛍️ Total Comprado (Rosa Pastel):</h3>
+    <div class="valor-total" style="color: #a84163;">R$ <span id="total-comprado">0.00</span></div>
+  </div>
+</div>
+
+<div id="lista" class="lista"></div>
+
+</div>
+
+<script>
+
+const senha = prompt("Digite a senha ❤️");
+
+if (senha !== "AMOTE") {
+    document.body.innerHTML = "<h1 style='text-align:center; padding:50px;'>Acesso negado ❌</h1>";
+    throw new Error("Acesso negado");
+}
+
+let itens = JSON.parse(localStorage.getItem("itens")) || [];
+
+function renderizar(){
+
+let totalPendente = 0;
+let totalComprado = 0;
+
+const lista = document.getElementById("lista");
+lista.innerHTML = "";
+
+itens.forEach((item, index) => {
+
+// Cálculo separado dos valores
+if (item.comprado) {
+    totalComprado += item.preco;
+} else {
+    totalPendente += item.preco;
+}
+
+let urlLoja = item.loja;
+if (urlLoja && !urlLoja.startsWith('http://') && !urlLoja.startsWith('https://')) {
+    urlLoja = 'https://' + urlLoja;
+}
+
+lista.innerHTML += `
+<div class="card ${item.comprado ? 'comprado' : ''}">
+
+  <div>
+    ${item.imagem ? `<img src="${item.imagem}" alt="${item.nome}">` : ''}
+    <h3>${item.nome}</h3>
+    <p>${item.categoria}</p>
+    <p class="preco">R$ ${item.preco.toFixed(2)}</p>
+
+    ${item.loja ? `
+      <a href="${urlLoja}" target="_blank" rel="noopener noreferrer" class="link-loja">
+        🔗 Ver Produto na Loja
+      </a>
+    ` : ''}
+  </div>
+
+  <div class="acoes">
+    <button class="btn-comprado" onclick="alternarComprado(${index})">
+      ${item.comprado ? '↩️ Desmarcar' : '🛍️ Comprado'}
+    </button>
+    <button class="btn-excluir" onclick="removerItem(${index})">
+      ❌
+    </button>
+  </div>
+
+</div>
+`;
+
+});
+
+document.getElementById("total-pendente").innerText = totalPendente.toFixed(2);
+document.getElementById("total-comprado").innerText = totalComprado.toFixed(2);
+
+}
+
+function adicionarItem(){
+
+const nome = document.getElementById("nome").value;
+if(!nome) return;
+
+itens.push({
+  nome,
+  imagem: document.getElementById("imagem").value,
+  loja: document.getElementById("loja").value,
+  preco: parseFloat(document.getElementById("preco").value) || 0,
+  categoria: document.getElementById("categoria").value,
+  comprado: false
+});
+
+localStorage.setItem("itens", JSON.stringify(itens));
+
+document.getElementById("nome").value = "";
+document.getElementById("imagem").value = "";
+document.getElementById("loja").value = "";
+document.getElementById("preco").value = "";
+
+renderizar();
+
+}
+
+function alternarComprado(index){
+  itens[index].comprado = !itens[index].comprado;
+  localStorage.setItem("itens", JSON.stringify(itens));
+  renderizar();
+}
+
+function removerItem(index){
+  itens.splice(index, 1);
+  localStorage.setItem("itens", JSON.stringify(itens));
+  renderizar();
+}
+
+renderizar();
+
+</script>
+
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minha Casinha 🩷</title>
+
+<style>
+body{
+  font-family: Arial, sans-serif;
+  background:#fff5f8;
+  margin:0;
+}
+
+header{
+  background:#f8a5c2;
+  color:white;
+  text-align:center;
+  padding:25px;
+}
+
+.container{
+  max-width:1100px;
+  margin:auto;
+  padding:20px;
+}
+
+.formulario{
+  background:white;
+  padding:15px;
+  border-radius:15px;
+  margin-bottom:20px;
+}
+
+input, select{
+  width:100%;
+  padding:10px;
+  margin:6px 0;
+  box-sizing:border-box;
+}
+
+button{
+  background:#ff69b4;
+  color:white;
+  border:none;
+  padding:10px 15px;
+  border-radius:10px;
+  cursor:pointer;
+  font-weight: bold;
+}
+
+.painel-totais {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.caixa-total {
+  flex: 1;
+  min-width: 220px;
+  background: white;
+  padding: 15px;
+  border-radius: 15px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.05);
+}
+
+.caixa-total h3 {
+  margin: 0 0 5px 0;
+  font-size: 1rem;
+  color: #555;
+}
+
+.caixa-total.comprados {
+  background: #fde2e4;
+  border: 1px solid #ffcad4;
+}
+
+.caixa-total.comprados h3 {
+  color: #a84163;
+}
+
+.valor-total {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #d63384;
+}
+
+.lista{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:15px;
+}
+
+.card{
+  background:white;
+  padding:15px;
+  border-radius:15px;
+  box-shadow:0 2px 8px rgba(0,0,0,.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+/* Estilo Rosa Pastel para itens comprados */
+.card.comprado {
+  background-color: #fde2e4;
+  border-color: #ffcad4;
+}
+
+.card.comprado h3,
+.card.comprado .preco {
+  text-decoration: line-through;
+  color: #a84163;
+}
+
+.card img{
+  width:100%;
+  height:180px;
+  object-fit:cover;
+  border-radius:10px;
+}
+
+.preco{
+  color:#d63384;
+  font-weight:bold;
+}
+
+.link-loja {
+  display: inline-block;
+  margin: 10px 0;
+  color: #d63384;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.link-loja:hover {
+  text-decoration: underline;
+}
+
+.acoes {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.btn-comprado {
+  background: #ff85a2;
+  flex: 1;
+}
+
+.card.comprado .btn-comprado {
+  background: #b5e2fa;
+  color: #2b2d42;
+}
+
+.btn-excluir {
+  background: #ff4d6d;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>🏡🩷 Minha Casinha</h1>
+  <p>Lista de compras para meu lar</p>
+</header>
+
+<div class="container">
+
+<div class="formulario">
+<input id="nome" placeholder="Nome do item">
+
+<input id="imagem" placeholder="Link da imagem">
+
+<input id="loja" placeholder="Link da loja (https://...)">
+
+<input id="preco" type="number" step="0.01" placeholder="Preço">
+
+<select id="categoria">
+<option>🍽️ Cozinha</option>
+<option>🛏️ Quarto</option>
+<option>🛋️ Sala</option>
+<option>🚿 Banheiro</option>
+<option>✨ Decoração</option>
+</select>
+
+<button onclick="adicionarItem()">
+Adicionar 🩷
+</button>
+
+</div>
+
+<div class="painel-totais">
+  <div class="caixa-total">
+    <h3>💰 Total a Comprar:</h3>
+    <div class="valor-total">R$ <span id="total-pendente">0.00</span></div>
+  </div>
+
+  <div class="caixa-total comprados">
+    <h3>🛍️ Total Comprado (Rosa Pastel):</h3>
+    <div class="valor-total" style="color: #a84163;">R$ <span id="total-comprado">0.00</span></div>
+  </div>
+</div>
+
+<div id="lista" class="lista"></div>
+
+</div>
+
+<script>
+
+const senha = prompt("Digite a senha ❤️");
+
+if (senha !== "AMOTE") {
+    document.body.innerHTML = "<h1 style='text-align:center; padding:50px;'>Acesso negado ❌</h1>";
+    throw new Error("Acesso negado");
+}
+
+let itens = JSON.parse(localStorage.getItem("itens")) || [];
+
+function renderizar(){
+
+let totalPendente = 0;
+let totalComprado = 0;
+
+const lista = document.getElementById("lista");
+lista.innerHTML = "";
+
+itens.forEach((item, index) => {
+
+// Cálculo separado dos valores
+if (item.comprado) {
+    totalComprado += item.preco;
+} else {
+    totalPendente += item.preco;
+}
+
+let urlLoja = item.loja;
+if (urlLoja && !urlLoja.startsWith('http://') && !urlLoja.startsWith('https://')) {
+    urlLoja = 'https://' + urlLoja;
+}
+
+lista.innerHTML += `
+<div class="card ${item.comprado ? 'comprado' : ''}">
+
+  <div>
+    ${item.imagem ? `<img src="${item.imagem}" alt="${item.nome}">` : ''}
+    <h3>${item.nome}</h3>
+    <p>${item.categoria}</p>
+    <p class="preco">R$ ${item.preco.toFixed(2)}</p>
+
+    ${item.loja ? `
+      <a href="${urlLoja}" target="_blank" rel="noopener noreferrer" class="link-loja">
+        🔗 Ver Produto na Loja
+      </a>
+    ` : ''}
+  </div>
+
+  <div class="acoes">
+    <button class="btn-comprado" onclick="alternarComprado(${index})">
+      ${item.comprado ? '↩️ Desmarcar' : '🛍️ Comprado'}
+    </button>
+    <button class="btn-excluir" onclick="removerItem(${index})">
+      ❌
+    </button>
+  </div>
+
+</div>
+`;
+
+});
+
+document.getElementById("total-pendente").innerText = totalPendente.toFixed(2);
+document.getElementById("total-comprado").innerText = totalComprado.toFixed(2);
+
+}
+
+function adicionarItem(){
+
+const nome = document.getElementById("nome").value;
+if(!nome) return;
+
+itens.push({
+  nome,
+  imagem: document.getElementById("imagem").value,
+  loja: document.getElementById("loja").value,
+  preco: parseFloat(document.getElementById("preco").value) || 0,
+  categoria: document.getElementById("categoria").value,
+  comprado: false
+});
+
+localStorage.setItem("itens", JSON.stringify(itens));
+
+document.getElementById("nome").value = "";
+document.getElementById("imagem").value = "";
+document.getElementById("loja").value = "";
+document.getElementById("preco").value = "";
+
+renderizar();
+
+}
+
+function alternarComprado(index){
+  itens[index].comprado = !itens[index].comprado;
+  localStorage.setItem("itens", JSON.stringify(itens));
+  renderizar();
+}
+
+function removerItem(index){
+  itens.splice(index, 1);
+  localStorage.setItem("itens", JSON.stringify(itens));
+  renderizar();
+}
+
+renderizar();
+
+</script>
+
+</body>
+</html>
 </div>
 
 <h2>
